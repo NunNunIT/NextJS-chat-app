@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useChannel } from 'ably/react';
 import styles from './ChatBox.module.css';
 
 export default function ChatBox() {
-  let inputBox = null;
-  let messageEnd = null;
+  // Define types for refs
+  const inputBox = useRef<HTMLTextAreaElement | null>(null);
+  const messageEnd = useRef<HTMLDivElement | null>(null);
 
   const [messageText, setMessageText] = useState('');
-  const [receivedMessages, setMessages] = useState([]);
+  const [receivedMessages, setMessages] = useState<any[]>([]); // Adjust the type if you know the exact structure of your messages
   const messageTextIsEmpty = messageText.trim().length === 0;
 
   const { channel, ably } = useChannel('chat-demo', (message) => {
@@ -15,23 +16,24 @@ export default function ChatBox() {
     setMessages([...history, message]);
   });
 
-  const sendChatMessage = (messageText) => {
+  const sendChatMessage = (messageText: string) => {
     channel.publish({ name: 'chat-message', data: messageText });
     setMessageText('');
-    inputBox.focus();
+    inputBox.current?.focus(); // Use ref to focus the input
   };
 
-  const handleFormSubmission = (event) => {
+  const handleFormSubmission = (event: React.FormEvent) => {
     event.preventDefault();
-    sendChatMessage(messageText);
-  };
-
-  const handleKeyPress = (event) => {
-    if (event.charCode !== 13 || messageTextIsEmpty) {
-      return;
+    if (!messageTextIsEmpty) {
+      sendChatMessage(messageText);
     }
-    sendChatMessage(messageText);
-    event.preventDefault();
+  };
+
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.charCode === 13 && !messageTextIsEmpty) {
+      sendChatMessage(messageText);
+      event.preventDefault();
+    }
   };
 
   const messages = receivedMessages.map((message, index) => {
@@ -44,24 +46,20 @@ export default function ChatBox() {
   });
 
   useEffect(() => {
-    messageEnd.scrollIntoView({ behaviour: 'smooth' });
-  });
+    if (messageEnd.current) {
+      messageEnd.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [receivedMessages]);
 
   return (
     <div className={styles.chatHolder}>
       <div className={styles.chatText}>
         {messages}
-        <div
-          ref={(element) => {
-            messageEnd = element;
-          }}
-        ></div>
+        <div ref={messageEnd}></div> {/* Assign ref to messageEnd */}
       </div>
       <form onSubmit={handleFormSubmission} className={styles.form}>
         <textarea
-          ref={(element) => {
-            inputBox = element;
-          }}
+          ref={inputBox} // Assign ref to inputBox
           value={messageText}
           placeholder="Type a message..."
           onChange={(e) => setMessageText(e.target.value)}
